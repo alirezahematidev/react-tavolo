@@ -1,36 +1,29 @@
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import { Expandable, alignClasses, useTavoloContext } from "./tavolo";
+import { alignClasses } from "./table";
 import { rowColumnKey } from "./helpers";
 import { effect, useSignal } from "@preact/signals-react";
-import { selectedRows$ } from "./selection.global";
 import { Fragment } from "react";
 import classNames from "classnames";
+import { Datasource, RowProps } from "./tavolo/types/table.types";
+import { useIntertalProps } from "./tavolo/context";
+import { globalSelectedRows } from "./selection.global";
 
-const renderRow = <T extends object>(value: T[keyof T]) => {
+const renderRow = <T extends Datasource>(value: T[keyof T]) => {
   if (typeof value === "object" || typeof value === "function") return null;
 
   return value as React.ReactNode;
 };
 
-interface RowProps<T extends object> {
-  row: T;
-  rowIndex: number;
-  expandable?: Expandable<T>;
-  expandedRows: T[];
-  onSelect(selected: boolean): void;
-  onExpand(expandedRow: T): void;
-}
+const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, row }: RowProps<T>) => {
+  const { columnProps, expandOptions, rowIdentifier } = useIntertalProps<T>();
 
-export const Row$ = <T extends object>({ onSelect, onExpand, rowIndex, row, expandedRows, expandable }: RowProps<T>) => {
-  const { columnProps, rowIdentifier } = useTavoloContext<T>();
-
-  const checked$ = useSignal<boolean>(false);
+  const checked = useSignal<boolean>(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rowIdentifier(row) });
 
   effect(() => {
-    checked$.value = selectedRows$.value.some((selectedRow) => rowIdentifier(selectedRow) === rowIdentifier(row));
+    checked.value = globalSelectedRows.value.some((selectedRow) => rowIdentifier(selectedRow) === rowIdentifier(row));
   });
 
   const style: React.CSSProperties = {
@@ -52,14 +45,14 @@ export const Row$ = <T extends object>({ onSelect, onExpand, rowIndex, row, expa
               onChange={(e) => {
                 onSelect(e.target.checked);
               }}
-              checked={checked$.value}
+              checked={checked.value}
             />
           </div>
         </td>
-        {expandable && (
+        {expandOptions && (
           <td>
             <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
-              {(!expandable.expandable || expandable.expandable(row)) && (
+              {(!expandOptions.expandable || expandOptions.expandable(row)) && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -78,13 +71,15 @@ export const Row$ = <T extends object>({ onSelect, onExpand, rowIndex, row, expa
           </td>
         ))}
       </tr>
-      {expandable && expandedRows.some((_row) => rowIdentifier(_row) === rowIdentifier(row)) && (
+      {expandOptions && isExpanded && (
         <tr style={{ background: "red", ...style }}>
           <td colSpan={4} style={{ overflow: "hidden" }}>
-            {expandable.render(row)}
+            {expandOptions.render?.(row, rowIndex)}
           </td>
         </tr>
       )}
     </Fragment>
   );
 };
+
+export { Row$ };

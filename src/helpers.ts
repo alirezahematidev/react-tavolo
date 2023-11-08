@@ -1,7 +1,8 @@
 import { Children, Fragment, Key, ReactElement, isValidElement, useMemo } from "react";
-import { Column$, ColumnProps } from "./column";
+import { Column$ } from "./column";
+import { ColumnProps, Datasource } from "./tavolo/types/table.types";
 
-const getChildName = <T extends object>(child: ReactElement<ColumnProps<T>>) => {
+const getChildName = <T extends Datasource>(child: ReactElement<ColumnProps<T>>) => {
   if (typeof child.type === "string") return child.type;
 
   if (child.type.name) return child.type.name;
@@ -9,7 +10,7 @@ const getChildName = <T extends object>(child: ReactElement<ColumnProps<T>>) => 
   return child.type.valueOf().toString();
 };
 
-const useChildrenParseAndValidate = <T extends object>(children: ReactElement<ColumnProps<T>>[]) => {
+const useChildrenParseAndValidate = <T extends Datasource>(children: ReactElement<ColumnProps<T>>[]) => {
   if (children === null) {
     throw new Error(`tavolo table component must have valid children. Received "${children}"`);
   }
@@ -39,19 +40,19 @@ const useChildrenParseAndValidate = <T extends object>(children: ReactElement<Co
   }, [children]);
 };
 
-const headerColumnKey = <T extends object>(id: keyof T, index: number) => {
+const headerColumnKey = <T extends Datasource>(id: keyof T, index: number) => {
   if (!id) return index;
 
   return `__header_${id.toString()}_${index}` satisfies Key;
 };
 
-const rowColumnKey = <T extends object>(id: keyof T, index: number) => {
+const rowColumnKey = <T extends Datasource>(id: keyof T, index: number) => {
   if (!id) return index;
 
   return `__row_${id.toString()}_${index}` satisfies Key;
 };
 
-const resizerTrackId = <T extends object>(dataIndex: keyof T, index: number): string => {
+const resizerTrackId = <T extends Datasource>(dataIndex: keyof T, index: number): string => {
   return `${dataIndex.toString()}_${index}`;
 };
 

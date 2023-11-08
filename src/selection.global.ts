@@ -1,5 +1,5 @@
 import { signal } from "@preact/signals-react";
 
-const selectedRows$ = signal<any[]>([]);
+const globalSelectedRows = signal<any[]>([]);
 
-export { selectedRows$ };
+export { globalSelectedRows };

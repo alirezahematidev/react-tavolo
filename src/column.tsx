@@ -1,19 +1,10 @@
-import { version } from "../package.json";
+import { addSignature } from "./tavolo/helpers";
+import { ColumnProps, Datasource } from "./tavolo/types/table.types";
 
-export interface ColumnProps<T extends object> {
-  title: string;
-  dataIndex: keyof T;
-  width?: number;
-  align?: "start" | "center" | "end";
-  render?: (record: T, rowIndex: number) => React.ReactNode;
-}
-
-function Column$<T extends object>(_props: ColumnProps<T>) {
+function Column$<T extends Datasource>(_props: ColumnProps<T>) {
   return null;
 }
 
-const v = version.split(".")[0];
-
-Object.defineProperty(Column$, "$$", { value: `__tavolo__V${v}`, enumerable: false, writable: false });
+addSignature(Column$);
 
 export { Column$ };

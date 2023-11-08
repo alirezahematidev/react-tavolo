@@ -1,5 +1,5 @@
 import "./App.css";
-import Tavolo from "./tavolo";
+import Table from "./table";
 
 type MockData = {
   id: string;
@@ -16,24 +16,10 @@ const data: MockData[] = [
 function App() {
   return (
     <div>
-      <Tavolo<MockData>
-        datasource={data}
-        rowIdentifier={(item) => item.id}
-        expandOptions={{
-          render(row) {
-            return <div style={{ height: 100, background: "red" }}>{row.name}</div>;
-          },
-          expandable(row) {
-            return row.name.startsWith("J");
-          },
-          onExpand(rows) {
-            console.log(rows);
-          },
-        }}
-      >
-        <Tavolo.Column<MockData> dataIndex="name" title="Name" />
-        <Tavolo.Column<MockData> dataIndex="age" title="Age" />
-      </Tavolo>
+      <Table<MockData> data={data} rowIdentifier={(item) => item.id}>
+        <Table.Column<MockData> dataIndex="name" title="Name" />
+        <Table.Column<MockData> dataIndex="age" title="Age" />
+      </Table>
     </div>
   );
 }
