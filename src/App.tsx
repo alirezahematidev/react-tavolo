@@ -7,16 +7,16 @@ type MockData = {
   age: number;
 };
 
-const data: MockData[] = [
-  { id: "1", name: "John", age: 30 },
-  { id: "2", name: "Jane", age: 25 },
-  { id: "3", name: "Bob", age: 35 },
-];
+const data: MockData[] = Array.from({ length: 10 }, (_, i) => ({
+  age: i,
+  id: i.toString(),
+  name: `name-${i}`,
+}));
 
 function App() {
   return (
     <div>
-      <Table<MockData> data={data} rowIdentifier={(item) => item.id}>
+      <Table<MockData> data={data} rowIdentifier={(item) => item.id} selectOptions={{ dragAreaSelection: true }}>
         <Table.Column<MockData> dataIndex="name" title="Name" />
         <Table.Column<MockData> dataIndex="age" title="Age" />
       </Table>

@@ -1,19 +1,25 @@
-import { useComputed, useSignal, useSignalEffect } from "@preact/signals-react";
+import { untracked, useSignal, useSignalEffect } from "@preact/signals-react";
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Row$ } from "./row";
-import { startTransition, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Column$ } from "./column";
 import { headerColumnKey, resizerTrackId, useChildrenParseAndValidate } from "./helpers";
-import { globalSelectedRows } from "./selection.global";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import classnames from "classnames";
-import { Coordinate, Datasource, ResizerStateWithTrackId, RowIdentifier, TableProps, UseSelectionReturn } from "./tavolo/types/table.types";
+import type {
+  Coordinate,
+  Datasource,
+  ResizerStateWithTrackId,
+  RowIdentifier,
+  TableProps,
+  UsePaginationReturn,
+  UseSelectionReturn,
+} from "./tavolo/types/table.types";
 import { InternalProvider } from "./tavolo/context/provider";
-
-export const useSelection$ = <T extends Datasource>(): UseSelectionReturn<T> => {
-  return { rows: globalSelectedRows.value as ReadonlyArray<T> };
-};
+import { table$ } from "./tavolo/signals";
+import { PAGE_SIZE } from "./tavolo/constants";
+import { useTableCallbacks } from "./tavolo/callbacks";
 
 export const alignClasses = {
   start: "cell-align-start",
@@ -22,16 +28,11 @@ export const alignClasses = {
 };
 
 const Table = <T extends Datasource>(props: TableProps<T>) => {
-  const { data, children, expandOptions, selectOptions, sortOptions, rowIdentifier } = useMemo<TableProps<T>>(
-    () => ({ ...props }),
-    [props]
-  );
+  const { data, children, rowIdentifier, ...rest } = props;
 
   const data$ = useSignal<T[]>(data);
 
-  const dataIdentifiers = useComputed(() => data$.value.map(rowIdentifier));
-
-  const resizerPos = useSignal<Coordinate | null>(null);
+  const resizer = useSignal<Coordinate | null>(null);
 
   const restrictedBoundary = useSignal<boolean>(false);
 
@@ -41,27 +42,69 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
 
   const resizerState = useSignal<ResizerStateWithTrackId>({ state: {}, trackId: null });
 
-  useSignalEffect(() => {
-    if (!selectOptions?.defaultSelectedRows || selectOptions.defaultSelectedRows.length === 0) return;
-
-    globalSelectedRows.value = selectOptions.defaultSelectedRows;
-  });
-
   const columnProps = useChildrenParseAndValidate(children);
 
-  const isMatched = (record: T) => (value: T) => rowIdentifier(record) === rowIdentifier(value);
+  useSignalEffect(() => {
+    const { selectOptions } = props;
 
-  const isDismatched = (record: T) => (value: T) => rowIdentifier(record) !== rowIdentifier(value);
+    if (!selectOptions) return undefined;
 
-  function renderTable() {
-    return data$.value.map((row, index) => (
+    const { defaultSelectedRows } = selectOptions;
+
+    if (!defaultSelectedRows || defaultSelectedRows.length === 0) return;
+
+    table$.rows.value = defaultSelectedRows;
+  });
+
+  useSignalEffect(() => {
+    const { pagination } = props;
+
+    function slicedData(data: T[], size: number) {
+      const page = table$.page.value;
+
+      return data.slice((page - 1) * size, page * size);
+    }
+
+    if (pagination) {
+      if (typeof pagination === "boolean") {
+        data$.value = slicedData(data, PAGE_SIZE);
+      } else {
+        const { lazy, pageSize = PAGE_SIZE } = pagination;
+
+        if (lazy) data$.value = slicedData(data, pageSize);
+      }
+    }
+  });
+
+  const loadedDatasource = useMemo(() => {
+    const { pagination } = props;
+
+    if (!pagination) return data;
+
+    if (typeof pagination === "boolean") return data$.value;
+
+    if (pagination.lazy) return data$.value;
+
+    return data;
+  }, [data, data$.value, props]);
+
+  const dataIdentifiers = useMemo(() => loadedDatasource.map(rowIdentifier), [loadedDatasource, rowIdentifier]);
+
+  const renderTable = useCallback(() => {
+    const isMatched = (record: T) => (value: T) => rowIdentifier(record) === rowIdentifier(value);
+
+    const isDismatched = (record: T) => (value: T) => rowIdentifier(record) !== rowIdentifier(value);
+
+    return loadedDatasource.map((row, index) => (
       <Row$<T>
         key={rowIdentifier(row)}
         row={row}
         rowIndex={index}
         isExpanded={expandedRecords.value.some(isMatched(row))}
         onExpand={(expandedRow) => {
-          if (!expandOptions) return;
+          const { expandOptions } = props;
+
+          if (!expandOptions) return undefined;
 
           if (expandedRecords.value.some(isMatched(expandedRow))) {
             expandedRecords.value = expandedRecords.value.filter(isDismatched(row));
@@ -72,17 +115,19 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
           if (expandOptions.onExpand) expandOptions.onExpand(expandedRecords.value);
         }}
         onSelect={(selected) => {
+          const { selectOptions } = props;
+
           if (selected) {
-            globalSelectedRows.value = [...globalSelectedRows.peek(), row];
+            table$.rows.value = [...table$.rows.peek(), row];
           } else {
-            globalSelectedRows.value = globalSelectedRows.value.filter(isDismatched(row));
+            table$.rows.value = table$.rows.value.filter(isDismatched(row));
           }
 
-          if (selectOptions?.onSelectRows) selectOptions.onSelectRows(globalSelectedRows.value);
+          if (selectOptions?.onSelectRows) selectOptions.onSelectRows(table$.rows.value);
         }}
       />
     ));
-  }
+  }, [expandedRecords, loadedDatasource, props, rowIdentifier]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 1 } }),
@@ -97,103 +142,18 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
     if (over === null) return;
 
     if (active.id !== over.id) {
-      const oldIndex = dataIdentifiers.value.indexOf(active.id);
-      const newIndex = dataIdentifiers.value.indexOf(over.id);
+      const oldIndex = dataIdentifiers.indexOf(active.id);
+      const newIndex = dataIdentifiers.indexOf(over.id);
 
-      const data = data$.peek();
+      const sortedData = arrayMove(loadedDatasource, oldIndex, newIndex);
 
-      data$.value = arrayMove(data$.value, oldIndex, newIndex);
+      const { sortOptions } = props;
 
-      if (sortOptions?.onSort) sortOptions.onSort(data, data$.value);
+      if (!sortOptions) return undefined;
+
+      if (sortOptions.onSort) sortOptions.onSort(loadedDatasource, sortedData);
     }
   };
-
-  const onMouseDown = (event: React.MouseEvent<HTMLTableElement>) => {
-    if (!selectOptions?.dragAreaSelection) return;
-
-    event.preventDefault();
-
-    const { clientX, clientY } = event;
-
-    resizerPos.value = { startX: clientX, startY: clientY, endX: clientX, endY: clientY };
-  };
-
-  const moveHandlerCallback = useCallback(
-    (event: React.MouseEvent<HTMLTableElement> | MouseEvent) => {
-      startTransition(() => {
-        if (!resizerPos.value) return;
-
-        const { clientX, clientY } = event;
-
-        resizerPos.value = { ...resizerPos.value, endX: clientX, endY: clientY };
-
-        if (resizerPos.value && restrictedBoundary.value) {
-          const intersectedElements = document.elementsFromPoint(resizerPos.value.endX, resizerPos.value.endY);
-
-          const rowElements = intersectedElements.filter((element) => element.hasAttribute("data-tavolo-id"));
-
-          const rowElementIds = rowElements.map((element) => element.getAttribute("data-tavolo-id")) as RowIdentifier[];
-
-          const modifiedRowIds = [...new Set([...areaIntersectedRowIds.value, ...rowElementIds])];
-
-          areaIntersectedRowIds.value = modifiedRowIds;
-        }
-      });
-    },
-    [areaIntersectedRowIds, resizerPos, restrictedBoundary.value]
-  );
-
-  const onMouseMove = (e: React.MouseEvent<HTMLTableElement>) => {
-    if (!selectOptions?.dragAreaSelection) return;
-
-    e.preventDefault();
-
-    moveHandlerCallback(e);
-  };
-
-  const upHandlerCallback = useCallback(() => {
-    const data = areaIntersectedRowIds.peek();
-
-    const areaIntersectedRows = data$.value.filter((row) => data.some((id) => rowIdentifier(row) === id));
-
-    globalSelectedRows.value = areaIntersectedRows;
-
-    if (selectOptions?.onSelectRows) selectOptions.onSelectRows(globalSelectedRows.value);
-
-    resizerPos.value = null;
-  }, [areaIntersectedRowIds, data$.value, resizerPos, rowIdentifier, selectOptions]);
-
-  const onMouseUp = (e: React.MouseEvent<HTMLTableElement>) => {
-    if (!selectOptions?.dragAreaSelection) return;
-
-    e.preventDefault();
-
-    upHandlerCallback();
-  };
-
-  useSignalEffect(() => {
-    if (!resizerPos.value || !selectOptions?.dragAreaSelection) return;
-
-    const handleUp = (e: MouseEvent) => {
-      e.preventDefault();
-
-      upHandlerCallback();
-    };
-
-    const handleMove = (e: MouseEvent) => {
-      e.preventDefault();
-
-      moveHandlerCallback(e);
-    };
-
-    window.addEventListener("mouseup", handleUp, false);
-    window.addEventListener("mousemove", handleMove, false);
-
-    return () => {
-      window.removeEventListener("mouseup", handleUp, false);
-      window.removeEventListener("mousemove", handleMove, false);
-    };
-  });
 
   const onGrabResizeHandler = (e: React.MouseEvent<HTMLDivElement, MouseEvent>, trackId: string, width: number | string) => {
     e.preventDefault();
@@ -253,9 +213,19 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
     };
   });
 
+  const decrement = () => table$.page.value - 1;
+  const increment = () => table$.page.value + 1;
+
+  const listeners = useTableCallbacks<T>({
+    signals: { resizer, restrictedBoundary, areaIntersectedRowIds },
+    loadedDatasource,
+    rowIdentifier,
+    ...rest,
+  });
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
-      {resizerPos.value && selectOptions?.dragAreaSelection && (
+      {resizer.value && props.selectOptions?.dragAreaSelection && (
         <div
           style={{
             position: "fixed",
@@ -264,34 +234,29 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
             border: "1px solid blue",
             cursor: "default",
             pointerEvents: "none",
-            left: resizerPos.value.endX < resizerPos.value.startX ? resizerPos.value.endX : resizerPos.value.startX,
-            top: resizerPos.value.endY < resizerPos.value.startY ? resizerPos.value.endY : resizerPos.value.startY,
-            width: Math.abs(resizerPos.value.endX - resizerPos.value.startX),
-            height: Math.abs(resizerPos.value.endY - resizerPos.value.startY),
+            left: resizer.value.endX < resizer.value.startX ? resizer.value.endX : resizer.value.startX,
+            top: resizer.value.endY < resizer.value.startY ? resizer.value.endY : resizer.value.startY,
+            width: Math.abs(resizer.value.endX - resizer.value.startX),
+            height: Math.abs(resizer.value.endY - resizer.value.startY),
           }}
         />
       )}
-      <table
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        // onMouseEnter={() => (inside$.value = true)}
-        // onMouseLeave={() => (inside$.value = false)}
-      >
+      <table {...listeners}>
         <thead>
           <tr>
             <th>
               <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
                 <input
                   type="checkbox"
+                  name="all"
                   onChange={(e) => {
-                    globalSelectedRows.value = e.target.checked ? data$.value : [];
+                    table$.rows.value = e.target.checked ? loadedDatasource : [];
                   }}
-                  checked={globalSelectedRows.value.length === data$.value.length}
+                  checked={table$.rows.value.length === loadedDatasource.length}
                 />
               </div>
             </th>
-            {expandOptions && (
+            {props.expandOptions && (
               <th>
                 <div style={{ width: 30, height: 30, background: "#ccc" }}></div>
               </th>
@@ -321,18 +286,51 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
           </tr>
         </thead>
         <tbody>
-          <InternalProvider {...{ columnProps, expandOptions, rowIdentifier }}>
-            <SortableContext items={dataIdentifiers.value} strategy={verticalListSortingStrategy}>
+          <InternalProvider {...{ columnProps, rowIdentifier, ...rest }}>
+            <SortableContext items={dataIdentifiers} strategy={verticalListSortingStrategy}>
               {renderTable()}
             </SortableContext>
           </InternalProvider>
         </tbody>
+        <tfoot>
+          <tr style={{}}>
+            <td colSpan={4}>
+              <div style={{ border: "1px solid #ccc", height: 30, display: "flex", alignItems: "center" }}>
+                <button
+                  style={{ width: 30, height: 30 }}
+                  disabled={table$.page.value === 1}
+                  onClick={() => {
+                    table$.page.value = untracked(decrement);
+                  }}
+                >{`<<`}</button>
+                <button style={{ width: 30, height: 30 }}>{table$.page.value}</button>
+                <button
+                  style={{ width: 30, height: 30 }}
+                  onClick={() => {
+                    table$.page.value = untracked(increment);
+                  }}
+                >{`>>`}</button>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
       </table>
     </DndContext>
   );
 };
 
+const useSelection$ = <T extends Datasource>(): UseSelectionReturn<T> => {
+  const rows = Object.freeze(table$.rows.value) as ReadonlyArray<T>;
+
+  return { rows };
+};
+
+const usePagination$ = (): UsePaginationReturn => {
+  return { page: table$.page.value };
+};
+
 Table.Column = Column$;
 Table.useSelection = useSelection$;
+Table.usePagination = usePagination$;
 
 export default Table;

@@ -1,12 +1,11 @@
 import { createContext, useContext } from "react";
-import { Datasource, type TableContextParams } from "../types/table.types";
+import type { Datasource, TableContextParams } from "../types/table.types";
 
 const TableContext = createContext<TableContextParams>({
   columnProps: [],
-  expandOptions: {},
-  rowIdentifier: () => String(),
+  rowIdentifier: () => "",
 });
 
-const useIntertalProps = <T extends Datasource>() => useContext<TableContextParams<T>>(TableContext);
+const useInternalProps = <T extends Datasource>() => useContext<TableContextParams<T>>(TableContext);
 
-export { TableContext, useIntertalProps };
+export { TableContext, useInternalProps };

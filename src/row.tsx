@@ -5,9 +5,9 @@ import { rowColumnKey } from "./helpers";
 import { effect, useSignal } from "@preact/signals-react";
 import { Fragment } from "react";
 import classNames from "classnames";
-import { Datasource, RowProps } from "./tavolo/types/table.types";
-import { useIntertalProps } from "./tavolo/context";
-import { globalSelectedRows } from "./selection.global";
+import type { Datasource, RowProps } from "./tavolo/types/table.types";
+import { table$ } from "./tavolo/signals";
+import { useInternalProps } from "./tavolo/context";
 
 const renderRow = <T extends Datasource>(value: T[keyof T]) => {
   if (typeof value === "object" || typeof value === "function") return null;
@@ -16,14 +16,14 @@ const renderRow = <T extends Datasource>(value: T[keyof T]) => {
 };
 
 const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, row }: RowProps<T>) => {
-  const { columnProps, expandOptions, rowIdentifier } = useIntertalProps<T>();
+  const { columnProps, expandOptions, rowIdentifier } = useInternalProps<T>();
 
   const checked = useSignal<boolean>(false);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rowIdentifier(row) });
 
   effect(() => {
-    checked.value = globalSelectedRows.value.some((selectedRow) => rowIdentifier(selectedRow) === rowIdentifier(row));
+    checked.value = table$.rows.value.some((selectedRow) => rowIdentifier(selectedRow) === rowIdentifier(row));
   });
 
   const style: React.CSSProperties = {
@@ -35,11 +35,12 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
 
   return (
     <Fragment>
-      <tr ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <tr ref={setNodeRef} style={style}>
         <td data-tavolo-id={rowIdentifier(row)}>
           <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
             <input
               type="checkbox"
+              name={`name-${rowIndex}`}
               onPointerDown={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
               onChange={(e) => {

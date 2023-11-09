@@ -1,14 +1,15 @@
+import { Signal } from "@preact/signals-react";
 import { CSSProperties, ReactElement } from "react";
 
 // global types
 
-export type Datasource = {
+type Datasource = {
   [key: string]: any;
 };
 
 type TKey<T extends Datasource> = keyof T;
 
-export type RowIdentifier = string | number;
+type RowIdentifier = string | number;
 
 type Updater<T, P extends Datasource> = T | ((record: P) => T);
 
@@ -38,11 +39,10 @@ type ColumnResizeOptions<T extends Datasource> = {
   disabledColumns: Array<TKey<T>>;
   handlerCustomStyle: Updater<CSSProperties, T>;
   handlerCustomClassName: Updater<string, T>;
-  customActivatorKey: string;
   range: ResizerRange;
 };
 
-export type Coordinate = {
+type Coordinate = {
   [K in CoordinateKeyOf]: number;
 };
 
@@ -53,7 +53,7 @@ type ResizerInfo = {
 
 type ResizerState = Record<string, ResizerInfo>;
 
-export type ResizerStateWithTrackId = {
+type ResizerStateWithTrackId = {
   state: ResizerState;
   readonly trackId: string | null;
 };
@@ -72,9 +72,14 @@ type ExpandOptions<T extends Datasource> = {
 
 // selecting types
 
+type DragAreaSelection = {
+  customActivatorKey: string;
+  bgColor: string;
+};
+
 type SelectOptions<T extends Datasource> = {
   onSelectRows: (records: T[]) => void;
-  dragAreaSelection: boolean;
+  dragAreaSelection: boolean | Partial<DragAreaSelection>;
   defaultSelectedRows: T[];
   unselectableRows: T[];
   style: Updater<CSSProperties, T>;
@@ -90,14 +95,28 @@ type ColumnOptions<T extends Datasource> = {
   render: (record: T, rowIndex: number) => React.ReactNode;
 };
 
-export interface ColumnProps<T extends Datasource> extends Partial<ColumnOptions<T>> {
+// pagination types
+
+type PaginationOption = {
+  // page: number;
+  pageSize: number;
+  total: number;
+  lazy: boolean;
+  onPageChange: (previous: number, current: number) => void;
+};
+
+type UsePaginationReturn = {
+  readonly page: number;
+};
+
+interface ColumnProps<T extends Datasource> extends Partial<ColumnOptions<T>> {
   title: string | React.ReactNode;
   dataIndex: keyof T;
 }
 
 // row props
 
-export interface RowProps<T extends Datasource> {
+interface RowProps<T extends Datasource> {
   row: T;
   rowIndex: number;
   isExpanded: boolean;
@@ -107,20 +126,34 @@ export interface RowProps<T extends Datasource> {
 
 // selection types
 
-export type UseSelectionReturn<T extends Datasource> = {
+type UseSelectionReturn<T extends Datasource> = {
   rows: ReadonlyArray<T>;
 };
 
 // context types
 
-export interface TableContextParams<T extends Datasource = any> extends Pick<TableProps<T>, "expandOptions"> {
+type SkippedParams = "data" | "children";
+
+interface TableContextParams<T extends Datasource = any> extends Omit<TableProps<T>, SkippedParams> {
   columnProps: ColumnProps<T>[];
-  rowIdentifier: (record: T) => RowIdentifier;
+}
+
+interface UseTableCallbackProps<T extends Datasource = any> extends Omit<TableProps<T>, SkippedParams> {
+  loadedDatasource: T[];
+  signals: {
+    resizer: Signal<Coordinate | null>;
+    restrictedBoundary: Signal<boolean>;
+    areaIntersectedRowIds: Signal<RowIdentifier[]>;
+  };
+}
+
+interface InternalProviderProps<T extends Datasource> extends TableContextParams<T> {
+  children: React.ReactNode;
 }
 
 // main types
 
-export interface TableProps<T extends Datasource> {
+interface TableProps<T extends Datasource> {
   readonly data: T[];
   children: ReactElement<ColumnProps<T>>[];
   rowIdentifier: (record: T) => RowIdentifier;
@@ -130,10 +163,7 @@ export interface TableProps<T extends Datasource> {
   columnResizing?: boolean | Partial<ColumnResizeOptions<T>>;
   customRowStyle?: Updater<CSSProperties, T>;
   customRowClassName?: Updater<string, T>;
-  /**
-   * @todo
-   */
-  pagination?: any;
+  pagination?: boolean | Partial<PaginationOption>;
   /**
    * @todo
    */
@@ -147,3 +177,19 @@ export interface TableProps<T extends Datasource> {
    */
   error?: any;
 }
+
+export type {
+  TableProps,
+  InternalProviderProps,
+  Datasource,
+  RowIdentifier,
+  Coordinate,
+  ResizerStateWithTrackId,
+  ColumnProps,
+  RowProps,
+  UseSelectionReturn,
+  TableContextParams,
+  UsePaginationReturn,
+  PaginationOption,
+  UseTableCallbackProps,
+};
