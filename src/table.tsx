@@ -245,10 +245,11 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
         <thead>
           <tr>
             <th>
-              <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <div style={{ padding:10, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
                 <input
                   type="checkbox"
                   name="all"
+                  style={{ height: 14, width: 14 }}
                   onChange={(e) => {
                     table$.rows.value = e.target.checked ? loadedDatasource : [];
                   }}
@@ -258,7 +259,7 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
             </th>
             {props.expandOptions && (
               <th>
-                <div style={{ width: 30, height: 30, background: "#ccc" }}></div>
+                <div style={{ width: 30, padding: 8, background: "#ccc" }}></div>
               </th>
             )}
             {(columnProps || []).map(({ dataIndex, width = 200, align = "center", title }, index) => (

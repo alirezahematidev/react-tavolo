@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { alignClasses } from "./table";
 import { rowColumnKey } from "./helpers";
 import { effect, useSignal } from "@preact/signals-react";
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import classNames from "classnames";
 import type { Datasource, RowProps } from "./tavolo/types/table.types";
 import { table$ } from "./tavolo/signals";
@@ -17,6 +17,8 @@ const renderRow = <T extends Datasource>(value: T[keyof T]) => {
 
 const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, row }: RowProps<T>) => {
   const { columnProps, expandOptions, rowIdentifier } = useInternalProps<T>();
+
+  const ref = useRef<HTMLTableCellElement>(null);
 
   const checked = useSignal<boolean>(false);
 
@@ -36,10 +38,19 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
   return (
     <Fragment>
       <tr ref={setNodeRef} style={style}>
-        <td data-tavolo-id={rowIdentifier(row)}>
-          <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <td ref={ref} data-tavolo-id={rowIdentifier(row)}>
+          <div
+            style={{
+              background: "#ccc",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 10,
+            }}
+          >
             <input
               type="checkbox"
+              style={{ height: 14, width: 14 }}
               name={`name-${rowIndex}`}
               onPointerDown={(e) => e.stopPropagation()}
               onKeyDown={(e) => e.stopPropagation()}
@@ -52,7 +63,7 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
         </td>
         {expandOptions && (
           <td>
-            <div style={{ width: 30, height: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <div style={{ width: 30, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
               {(!expandOptions.expandable || expandOptions.expandable(row)) && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}

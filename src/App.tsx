@@ -16,7 +16,7 @@ const data: MockData[] = Array.from({ length: 10 }, (_, i) => ({
 function App() {
   return (
     <div>
-      <Table<MockData> data={data} rowIdentifier={(item) => item.id} selectOptions={{ dragAreaSelection: true }}>
+      <Table<MockData> data={data} rowIdentifier={(item) => item.id}>
         <Table.Column<MockData> dataIndex="name" title="Name" />
         <Table.Column<MockData> dataIndex="age" title="Age" />
       </Table>
