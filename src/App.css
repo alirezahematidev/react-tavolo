@@ -15,10 +15,23 @@ body {
 .cell {
   width: var(--column-width);
   display: flex;
-  background-color: #ccc;
   align-items: center;
   position: relative;
   padding: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-color: #fff;
+}
+
+.header-cell {
+  width: var(--column-width);
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 8px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background-color: #f2f2f2;
 }
 
 .cell-align-start {
@@ -33,12 +46,12 @@ body {
   justify-content: center;
 }
 
-.column-resize-handler {
-  position: absolute;
-  cursor: col-resize;
+.header-td-cell {
+  width: var(--column-width);
+}
+
+.fixed-column {
+  position: sticky;
   right: 0;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background-color: red;
+  z-index: 999;
 }

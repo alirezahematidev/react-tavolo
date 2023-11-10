@@ -1,16 +1,14 @@
 import { untracked, useSignal, useSignalEffect } from "@preact/signals-react";
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { Row$ } from "./row";
 import { useCallback, useMemo } from "react";
 import { Column$ } from "./column";
-import { headerColumnKey, resizerTrackId, useChildrenParseAndValidate } from "./helpers";
+import { headerColumnKey, useChildrenParseAndValidate } from "./helpers";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import classnames from "classnames";
 import type {
   Coordinate,
   Datasource,
-  ResizerStateWithTrackId,
   RowIdentifier,
   TableProps,
   UsePaginationReturn,
@@ -20,6 +18,7 @@ import { InternalProvider } from "./tavolo/context/provider";
 import { table$ } from "./tavolo/signals";
 import { PAGE_SIZE } from "./tavolo/constants";
 import { useTableCallbacks } from "./tavolo/callbacks";
+import { Row$ } from "./tavolo/components/row";
 
 export const alignClasses = {
   start: "cell-align-start",
@@ -39,8 +38,6 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
   const expandedRecords = useSignal<T[]>([]);
 
   const areaIntersectedRowIds = useSignal<RowIdentifier[]>([]);
-
-  const resizerState = useSignal<ResizerStateWithTrackId>({ state: {}, trackId: null });
 
   const columnProps = useChildrenParseAndValidate(children);
 
@@ -69,9 +66,9 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
       if (typeof pagination === "boolean") {
         data$.value = slicedData(data, PAGE_SIZE);
       } else {
-        const { lazy, pageSize = PAGE_SIZE } = pagination;
+        const { slice, pageSize = PAGE_SIZE } = pagination;
 
-        if (lazy) data$.value = slicedData(data, pageSize);
+        if (slice) data$.value = slicedData(data, pageSize);
       }
     }
   });
@@ -83,7 +80,7 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
 
     if (typeof pagination === "boolean") return data$.value;
 
-    if (pagination.lazy) return data$.value;
+    if (pagination.slice) return data$.value;
 
     return data;
   }, [data, data$.value, props]);
@@ -155,64 +152,6 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
     }
   };
 
-  const onGrabResizeHandler = (e: React.MouseEvent<HTMLDivElement, MouseEvent>, trackId: string, width: number | string) => {
-    e.preventDefault();
-
-    resizerState.value = {
-      state: {
-        ...resizerState.value.state,
-        [trackId]: {
-          position: e.clientX,
-          width: resizerState.value.state[trackId] ? resizerState.value.state[trackId].width || width : width,
-        },
-      },
-      trackId,
-    };
-  };
-
-  const onReleaseResizeHandler = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    e.preventDefault();
-
-    resizerState.value = { ...resizerState.value, trackId: null };
-  };
-
-  useSignalEffect(() => {
-    const handleResizing = (e: MouseEvent) => {
-      e.preventDefault();
-
-      if (resizerState.value.trackId) {
-        const trackId = resizerState.value.trackId;
-
-        const trackingState = resizerState.value.state[trackId];
-
-        if (trackingState) {
-          const replacement = e.clientX - trackingState.position;
-
-          const modifiedWidth = Number(trackingState.width) + replacement;
-
-          resizerState.value = {
-            ...resizerState.value,
-            state: { ...resizerState.value.state, [trackId]: { position: e.clientX, width: modifiedWidth } },
-          };
-        }
-      }
-    };
-
-    const handleRelease = (e: MouseEvent) => {
-      e.preventDefault();
-
-      resizerState.value = { ...resizerState.value, trackId: null };
-    };
-
-    window.addEventListener("mousemove", handleResizing, false);
-    window.addEventListener("mouseup", handleRelease, false);
-
-    return () => {
-      window.removeEventListener("mousemove", handleResizing, false);
-      window.removeEventListener("mouseup", handleRelease, false);
-    };
-  });
-
   const decrement = () => table$.page.value - 1;
   const increment = () => table$.page.value + 1;
 
@@ -241,81 +180,82 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
           }}
         />
       )}
-      <table {...listeners}>
-        <thead>
-          <tr>
-            <th>
-              <div style={{ padding:10, background: "#ccc", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  name="all"
-                  style={{ height: 14, width: 14 }}
-                  onChange={(e) => {
-                    table$.rows.value = e.target.checked ? loadedDatasource : [];
-                  }}
-                  checked={table$.rows.value.length === loadedDatasource.length}
-                />
-              </div>
-            </th>
-            {props.expandOptions && (
-              <th>
-                <div style={{ width: 30, padding: 8, background: "#ccc" }}></div>
-              </th>
-            )}
-            {(columnProps || []).map(({ dataIndex, width = 200, align = "center", title }, index) => (
-              <th key={headerColumnKey(dataIndex, index)}>
-                <div
-                  className={classnames("cell", alignClasses[align])}
-                  style={{
-                    "--column-width":
-                      (resizerState.value.state[resizerTrackId<T>(dataIndex, index)]
-                        ? resizerState.value.state[resizerTrackId<T>(dataIndex, index)].width || width
-                        : width) + "px",
-                  }}
-                >
-                  <div
-                    className="column-resize-handler"
-                    onMouseDown={(e) => {
-                      onGrabResizeHandler(e, resizerTrackId<T>(dataIndex, index), width);
+      <div style={{ overflowX: "auto" }} className="table-container">
+        <table
+          {...listeners}
+          style={{
+            borderCollapse: "collapse",
+            width: "100%",
+            borderSpacing: 0,
+            background: "#fff",
+          }}
+        >
+          <thead style={{ background: "#f2f2f2" }}>
+            <tr>
+              <th style={{ width: 34 }}>
+                <div style={{ padding: 10, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    name="all"
+                    style={{ height: 14, width: 14 }}
+                    onChange={(e) => {
+                      table$.rows.value = e.target.checked ? loadedDatasource : [];
                     }}
-                    onMouseUp={onReleaseResizeHandler}
+                    checked={table$.rows.value.length === loadedDatasource.length}
                   />
-                  {title}
                 </div>
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          <InternalProvider {...{ columnProps, rowIdentifier, ...rest }}>
-            <SortableContext items={dataIdentifiers} strategy={verticalListSortingStrategy}>
-              {renderTable()}
-            </SortableContext>
-          </InternalProvider>
-        </tbody>
-        <tfoot>
-          <tr style={{}}>
-            <td colSpan={4}>
-              <div style={{ border: "1px solid #ccc", height: 30, display: "flex", alignItems: "center" }}>
-                <button
-                  style={{ width: 30, height: 30 }}
-                  disabled={table$.page.value === 1}
-                  onClick={() => {
-                    table$.page.value = untracked(decrement);
-                  }}
-                >{`<<`}</button>
-                <button style={{ width: 30, height: 30 }}>{table$.page.value}</button>
-                <button
-                  style={{ width: 30, height: 30 }}
-                  onClick={() => {
-                    table$.page.value = untracked(increment);
-                  }}
-                >{`>>`}</button>
-              </div>
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+              {props.expandOptions && (
+                <th>
+                  <div style={{ width: 30, padding: 8 }}></div>
+                </th>
+              )}
+              {(columnProps || []).map(({ dataIndex, width, fixed, align = "center", title }, index) => (
+                <th
+                  key={headerColumnKey(dataIndex, index)}
+                  className={classnames("header-td-cell", fixed && "fixed-column")}
+                  style={{ "--column-width": width + "px" }}
+                >
+                  <div className={classnames("header-cell", alignClasses[align])} style={{ "--column-width": width + "px" }}>
+                    {title}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <InternalProvider {...{ columnProps, rowIdentifier, ...rest }}>
+              <SortableContext items={dataIdentifiers} strategy={verticalListSortingStrategy}>
+                {renderTable()}
+              </SortableContext>
+            </InternalProvider>
+          </tbody>
+          {props.pagination && (
+            <tfoot>
+              <tr>
+                <td colSpan={4}>
+                  <div style={{ border: "1px solid #ccc", height: 30, display: "flex", alignItems: "center" }}>
+                    <button
+                      style={{ width: 30, height: 30 }}
+                      disabled={table$.page.value === 1}
+                      onClick={() => {
+                        table$.page.value = untracked(decrement);
+                      }}
+                    >{`<<`}</button>
+                    <button style={{ width: 30, height: 30 }}>{table$.page.value}</button>
+                    <button
+                      style={{ width: 30, height: 30 }}
+                      onClick={() => {
+                        table$.page.value = untracked(increment);
+                      }}
+                    >{`>>`}</button>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
     </DndContext>
   );
 };

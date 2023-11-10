@@ -7,13 +7,9 @@ type Datasource = {
   [key: string]: any;
 };
 
-type TKey<T extends Datasource> = keyof T;
-
 type RowIdentifier = string | number;
 
 type Updater<T, P extends Datasource> = T | ((record: P) => T);
-
-type ResizerRange = [number, number?];
 
 type CoordinateKeyOf = "startX" | "startY" | "endX" | "endY";
 
@@ -28,18 +24,9 @@ type DragSorting<T extends Datasource> = {
 };
 
 type SortOptions<T extends Datasource> = {
-  onSort: (data: T[], sortedData: T[]) => void;
-  dragSorting: boolean | Partial<DragSorting<T>>;
-  renderSorter: React.ReactNode | ((order: Order) => React.ReactNode);
-};
-
-// resizing types
-
-type ColumnResizeOptions<T extends Datasource> = {
-  disabledColumns: Array<TKey<T>>;
-  handlerCustomStyle: Updater<CSSProperties, T>;
-  handlerCustomClassName: Updater<string, T>;
-  range: ResizerRange;
+  onSort?: (data: T[], sortedData: T[]) => void;
+  dragSorting?: boolean | Partial<DragSorting<T>>;
+  renderSorter?: React.ReactNode | ((order: Order) => React.ReactNode);
 };
 
 type Coordinate = {
@@ -61,13 +48,13 @@ type ResizerStateWithTrackId = {
 // expanding types
 
 type ExpandOptions<T extends Datasource> = {
-  render: (record: T, rowIndex: number) => React.ReactNode;
-  expandable: (record: T) => boolean;
-  onExpand: (records: T[]) => void;
+  render?: (record: T, rowIndex: number) => React.ReactNode;
+  expandable?: (record: T) => boolean;
+  onExpand?: (records: T[]) => void;
   /**
    * @todo
    */
-  transition: any;
+  transition?: any;
 };
 
 // selecting types
@@ -78,19 +65,20 @@ type DragAreaSelection = {
 };
 
 type SelectOptions<T extends Datasource> = {
-  onSelectRows: (records: T[]) => void;
-  dragAreaSelection: boolean | Partial<DragAreaSelection>;
-  defaultSelectedRows: T[];
-  unselectableRows: T[];
-  style: Updater<CSSProperties, T>;
-  className: Updater<string, T>;
+  onSelectRows?: (records: T[]) => void;
+  dragAreaSelection?: boolean | Partial<DragAreaSelection>;
+  defaultSelectedRows?: T[];
+  unselectableRows?: T[];
+  style?: Updater<CSSProperties, T>;
+  className?: Updater<string, T>;
 };
 
 // column types
 
 type ColumnOptions<T extends Datasource> = {
-  width: number | string;
+  width: number;
   align: "start" | "center" | "end";
+  fixed: boolean;
   sorter: (a: T, b: T) => number;
   render: (record: T, rowIndex: number) => React.ReactNode;
 };
@@ -99,10 +87,10 @@ type ColumnOptions<T extends Datasource> = {
 
 type PaginationOption = {
   // page: number;
-  pageSize: number;
-  total: number;
-  lazy: boolean;
-  onPageChange: (previous: number, current: number) => void;
+  pageSize?: number;
+  total?: number;
+  slice?: boolean;
+  onPageChange?: (previous: number, current: number) => void;
 };
 
 type UsePaginationReturn = {
@@ -157,13 +145,13 @@ interface TableProps<T extends Datasource> {
   readonly data: T[];
   children: ReactElement<ColumnProps<T>>[];
   rowIdentifier: (record: T) => RowIdentifier;
-  expandOptions?: Partial<ExpandOptions<T>>;
-  sortOptions?: Partial<SortOptions<T>>;
-  selectOptions?: Partial<SelectOptions<T>>;
-  columnResizing?: boolean | Partial<ColumnResizeOptions<T>>;
+  expandOptions?: ExpandOptions<T>;
+  sortOptions?: SortOptions<T>;
+  selectOptions?: SelectOptions<T>;
   customRowStyle?: Updater<CSSProperties, T>;
   customRowClassName?: Updater<string, T>;
-  pagination?: boolean | Partial<PaginationOption>;
+  pagination?: boolean | PaginationOption;
+  lazy?: boolean;
   /**
    * @todo
    */
