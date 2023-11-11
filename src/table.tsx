@@ -101,7 +101,7 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
         onExpand={(expandedRow) => {
           const { expandOptions } = props;
 
-          if (!expandOptions) return undefined;
+          // if (!expandOptions) return undefined;
 
           if (expandedRecords.value.some(isMatched(expandedRow))) {
             expandedRecords.value = expandedRecords.value.filter(isDismatched(row));
@@ -109,7 +109,7 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
             expandedRecords.value = [...expandedRecords.peek(), row];
           }
 
-          if (expandOptions.onExpand) expandOptions.onExpand(expandedRecords.value);
+          if (expandOptions?.onExpand) expandOptions.onExpand(expandedRecords.value);
         }}
         onSelect={(selected) => {
           const { selectOptions } = props;
@@ -205,8 +205,8 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
                   />
                 </div>
               </th>
-              {props.expandOptions && (
-                <th>
+              {true && (
+                <th style={{ width: 34 }}>
                   <div style={{ width: 30, padding: 8 }}></div>
                 </th>
               )}

@@ -5,6 +5,7 @@ import { CSSProperties, ReactElement } from "react";
 
 type Datasource = {
   [key: string]: any;
+  children?: Datasource[];
 };
 
 type RowIdentifier = string | number;

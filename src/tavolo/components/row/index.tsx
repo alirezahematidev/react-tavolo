@@ -8,9 +8,15 @@ import { table$ } from "../../signals";
 import Cells from "../cells";
 import { useMergeRefs } from "../../helpers";
 import { LazyRender } from "./lazyRender";
+import classNames from "classnames";
+import { alignClasses } from "../../../table";
+
+const isTreeData = <T extends Datasource>(record: Omit<T, "children">) => {
+  return "children" in record && !!record.children && Array.isArray(record.children) && record.children.length !== 0;
+};
 
 const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, row }: RowProps<T>) => {
-  const { expandOptions, lazy, rowIdentifier } = useInternalProps<T>();
+  const { expandOptions, lazy, rowIdentifier, columnProps } = useInternalProps<T>();
 
   const checked = useSignal<boolean>(false);
 
@@ -58,10 +64,10 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
             />
           </div>
         </td>
-        {expandOptions && (
-          <td>
-            <div style={{ width: 30, display: "flex", justifyContent: "center", alignItems: "center" }}>
-              {(!expandOptions.expandable || expandOptions.expandable(row)) && (
+        <td>
+          {(expandOptions || isTreeData(row)) && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+              {(!expandOptions?.expandable || expandOptions.expandable(row)) && (
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -72,17 +78,72 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
                 </button>
               )}
             </div>
-          </td>
-        )}
+          )}
+        </td>
 
         <LazyRender lazyRef={lazyRef} lazy={lazy}>
           <Cells {...{ row, rowIndex }} />
         </LazyRender>
       </tr>
+      {isTreeData<T>(row) && isExpanded && (
+        <Fragment>
+          {(row.children as T[])?.map((child, idx) => (
+            <tr key={idx} style={{ ...style }}>
+              <td data-tavolo-id={rowIdentifier(child)}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    padding: 10,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    style={{ height: 14, width: 14 }}
+                    name={`name-${idx}`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      onSelect(e.target.checked);
+                    }}
+                    checked={checked.value}
+                  />
+                </div>
+              </td>
+              <td>
+                {(expandOptions || isTreeData(child)) && (
+                  <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    {(!expandOptions?.expandable || expandOptions.expandable(child)) && (
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        onClick={() => onExpand(child)}
+                        style={{ width: 15, height: 15, display: "flex", justifyContent: "center", alignItems: "center" }}
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                )}
+              </td>
+              {columnProps.map(({ align = "center", dataIndex }, i) => (
+                <Fragment key={dataIndex.toString() + idx}>
+                  <td style={{ position: "relative" }}>
+                    {i === 0 && <span style={{ paddingLeft: 45, height: 1, float: "left" }} />}
+                    <div className={classNames("cell", alignClasses[align])}>{child[dataIndex]}</div>
+                  </td>
+                </Fragment>
+              ))}
+            </tr>
+          ))}
+        </Fragment>
+      )}
+
       {expandOptions && isExpanded && (
-        <tr style={{ background: "red", ...style }}>
+        <tr style={{ ...style }}>
           <td colSpan={4} style={{ overflow: "hidden" }}>
-            {expandOptions.render?.(row, rowIndex)}
+            {expandOptions?.render?.(row, rowIndex)}
           </td>
         </tr>
       )}
