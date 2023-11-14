@@ -162,6 +162,10 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
     ...rest,
   });
 
+  const value = useMemo(() => {
+    return { columnProps, rowIdentifier, ...rest };
+  }, [columnProps, rest, rowIdentifier]);
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
       {resizer.value && props.selectOptions?.dragAreaSelection && (
@@ -224,7 +228,7 @@ const Table = <T extends Datasource>(props: TableProps<T>) => {
             </tr>
           </thead>
           <tbody>
-            <InternalProvider {...{ columnProps, rowIdentifier, ...rest }}>
+            <InternalProvider {...value}>
               <SortableContext items={dataIdentifiers} strategy={verticalListSortingStrategy}>
                 {renderTable()}
               </SortableContext>

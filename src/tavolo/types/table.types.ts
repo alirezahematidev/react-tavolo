@@ -48,14 +48,25 @@ type ResizerStateWithTrackId = {
 
 // expanding types
 
+type RequestHandler<T extends Datasource> = (record: T) => Promise<T[]>;
+
+type Preload = boolean | "lazy";
+
+type RequestPreload<T extends Datasource> = Preload | ((record: T) => Preload);
+
+type RequestOptions<T extends Datasource> = {
+  request: RequestHandler<T>;
+  onSuccess?(affectedRow: T): void;
+  onError?<E = unknown>(error: E): void;
+  preload?: RequestPreload<T>;
+};
+
 type ExpandOptions<T extends Datasource> = {
   render?: (record: T, rowIndex: number) => React.ReactNode;
   expandable?: (record: T) => boolean;
   onExpand?: (records: T[]) => void;
-  /**
-   * @todo
-   */
-  transition?: any;
+  customRequest?: RequestHandler<T> | RequestOptions<T>;
+  transition?: string;
 };
 
 // selecting types

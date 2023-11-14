@@ -9,6 +9,7 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
 
   const moveCallback = useCallback(
     (event: React.MouseEvent<HTMLTableElement> | MouseEvent) => {
+      return false;
       startTransition(() => {
         if (!resizer.value) return;
 
@@ -33,6 +34,7 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
   );
 
   const upCallback = useCallback(() => {
+    return false;
     if (!selectOptions) return undefined;
 
     const data = areaIntersectedRowIds.peek();
@@ -48,6 +50,7 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
 
   const onMouseDown = useCallback(
     (event: React.MouseEvent<HTMLTableElement>) => {
+      return false;
       if (!selectOptions) return undefined;
 
       if (!selectOptions.dragAreaSelection) return;
@@ -63,6 +66,7 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent<HTMLTableElement>) => {
+      return false;
       if (!selectOptions) return undefined;
 
       if (!selectOptions.dragAreaSelection) return;
@@ -75,6 +79,7 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
   );
 
   const onMouseUp = (e: React.MouseEvent<HTMLTableElement>) => {
+    return false;
     if (!selectOptions) return undefined;
 
     if (!selectOptions.dragAreaSelection) return;
@@ -85,10 +90,12 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
   };
 
   const onMouseEnter = () => {
+    return false;
     restrictedBoundary.value = true;
   };
 
   const onMouseLeave = () => {
+    return false;
     restrictedBoundary.value = false;
   };
 
@@ -98,12 +105,14 @@ const useTableCallbacks = <T extends Datasource>({ loadedDatasource, selectOptio
     if (!resizer.value || !selectOptions.dragAreaSelection) return undefined;
 
     const handleUp = (e: MouseEvent) => {
+      return false;
       e.preventDefault();
 
       upCallback();
     };
 
     const handleMove = (e: MouseEvent) => {
+      return false;
       e.preventDefault();
 
       moveCallback(e);

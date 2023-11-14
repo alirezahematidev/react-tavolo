@@ -1,5 +1,3 @@
-import { CSS } from "@dnd-kit/utilities";
-import { useSortable } from "@dnd-kit/sortable";
 import { effect, useSignal } from "@preact/signals-react";
 import { Fragment, useRef } from "react";
 import { Datasource, RowProps } from "../../types/table.types";
@@ -22,26 +20,30 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
 
   const lazyRef = useRef<HTMLElement>(null);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rowIdentifier(row) });
+  // const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rowIdentifier(row) });
 
-  const ref = useMergeRefs(setNodeRef, lazyRef);
+  const ref = useMergeRefs(lazyRef);
+
+  const requestData = useSignal<T[]>([]);
+
+  console.log(requestData.value);
 
   effect(() => {
     checked.value = table$.rows.value.some((selectedRow) => rowIdentifier(selectedRow) === rowIdentifier(row));
   });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    // transform: CSS.Transform.toString(transform),
+    // transition,
     position: "relative",
-    zIndex: isDragging ? 99 : "auto",
+    // zIndex: isDragging ? 99 : "auto",
     borderBottom: "1px solid #f2f2f2",
-    background: isDragging ? "#f2f2f2" : "#fff",
+    // background: isDragging ? "#f2f2f2" : "#fff",
   };
 
   return (
     <Fragment>
-      <tr ref={ref} style={style} {...attributes} {...listeners}>
+      <tr ref={ref} style={style}>
         <td data-tavolo-id={rowIdentifier(row)}>
           <div
             style={{
@@ -71,7 +73,17 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
-                  onClick={() => onExpand(row)}
+                  onClick={async () => {
+                    // if (expandOptions && expandOptions.customRequest) {
+                    //   try {
+                    //     requestData.value = await expandOptions.customRequest(row);
+                    //   } catch (error) {
+                    //     console.error(error);
+                    //   }
+                    // }
+
+                    onExpand(row);
+                  }}
                   style={{ width: 15, height: 15, display: "flex", justifyContent: "center", alignItems: "center" }}
                 >
                   +
@@ -118,7 +130,9 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
                       <button
                         onPointerDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
-                        onClick={() => onExpand(child)}
+                        onClick={() => {
+                          onExpand(child);
+                        }}
                         style={{ width: 15, height: 15, display: "flex", justifyContent: "center", alignItems: "center" }}
                       >
                         +
@@ -150,5 +164,9 @@ const Row$ = <T extends Datasource>({ onSelect, onExpand, isExpanded, rowIndex, 
     </Fragment>
   );
 };
+
+function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
+  return value instanceof Promise && "then" in value && typeof value.then === "function";
+}
 
 export { Row$ };

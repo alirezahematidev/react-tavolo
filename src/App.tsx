@@ -26,7 +26,18 @@ const data: MockData[] = Array.from({ length: 10 }, (_, i) => ({
 function App() {
   return (
     <div>
-      <Table<MockData> data={data} rowIdentifier={(item) => item.id}>
+      <Table<MockData>
+        data={data}
+        rowIdentifier={(item) => item.id}
+        expandOptions={{
+          customRequest: {
+            request(record) {
+              return new Promise((r) => r(data));
+            },
+            preload: true,
+          },
+        }}
+      >
         <Table.Column<MockData> dataIndex="name" title="Name" width={200} />
         <Table.Column<MockData> dataIndex="age" title="Age" width={200} />
         <Table.Column<MockData> dataIndex="firstname" title="Firstname" />
